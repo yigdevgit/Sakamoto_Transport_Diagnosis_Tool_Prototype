@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課題診断ツール (v2.1)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN for Radar Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-size: 16px;
+        }
+
+        /* レベル選択ボタンの直感的スタイル */
+        .level-btn {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border: 2px solid #cbd5e1;
+            background-color: #ffffff;
+        }
+        .level-btn:hover {
+            transform: translateY(-2px);
+            border-color: #6366f1;
+        }
+        
+        /* 選択時（アクティブ）のレベル別強調カラー */
+        .level-btn.active-lvl-1 {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+            color: #991b1b !important;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+        }
+        .level-btn.active-lvl-2 {
+            border-color: #f59e0b !important;
+            background-color: #fffbebfb !important;
+            color: #92400e !important;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
+        }
+        .level-btn.active-lvl-3 {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+            color: #1e40af !important;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);
+        }
+        .level-btn.active-lvl-4 {
+            border-color: #6366f1 !important;
+            background-color: #eef2ff !important;
+            color: #3730a3 !important;
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+        }
+        .level-btn.active-lvl-5 {
+            border-color: #10b981 !important;
+            background-color: #ecfdf5 !important;
+            color: #065f46 !important;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+        }
+
+        /* エラーハイライト */
+        .error-border {
+            border: 2px solid #ef4444 !important;
+            background-color: #fff5f5 !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+        }
+
+        #toast {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 12px !important;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .card-box {
+                border: 1.5px solid #000000 !important;
+                box-shadow: none !important;
+                break-inside: avoid;
+            }
+            .bg-slate-900, .bg-indigo-600, .bg-blue-600, .bg-indigo-900 {
+                background-color: #e2e8f0 !important;
+                color: #000000 !important;
+            }
+            th {
+                background-color: #f1f5f9 !important;
+                color: #000000 !important;
+            }
+            .chart-container {
+                max-width: 320px !important;
+                margin: 0 auto !important;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- ヘッダー (画面表示用) -->
+    <header class="bg-slate-900 text-white shadow-md no-print border-b-4 border-indigo-600">
+        <div class="max-w-5xl mx-auto px-6 py-5 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow font-bold">
+                    <i class="fa-solid fa-square-poll-vertical text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-2xl tracking-wide">課題診断ツール <span class="text-xs bg-indigo-500/40 text-indigo-200 px-2 py-0.5 rounded font-normal">v2.1</span></h1>
+                </div>
+            </div>
+            <div class="text-right text-sm text-slate-300 font-medium">
+                <span>作成日: 2026年9月30日</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 印刷時のみ表示されるヘッダー -->
+    <div class="hidden print-only p-4 border-b-2 border-black mb-4">
+        <div class="flex justify-between items-end">
+            <div>
+                <h1 class="text-2xl font-bold">【診断結果レポート】課題診断ツール (v2.1)</h1>
+            </div>
+            <div class="text-sm">
+                作成日: 2026年9月30日
+            </div>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-4xl mx-auto px-4 py-8 flex-grow w-full">
+
+        <!-- トースト通知 -->
+        <div id="toast" class="fixed top-5 right-5 bg-slate-900 text-white px-6 py-3.5 rounded-xl shadow-2xl opacity-0 pointer-events-none transform -translate-y-2 z-50 flex items-center space-x-3 text-sm font-bold border border-slate-700">
+            <i class="fa-solid fa-circle-check text-emerald-400 text-xl"></i>
+            <span id="toast-msg">結果をクリップボードにコピーしました！</span>
+        </div>
+
+        <!-- 診断入力画面 -->
+        <div id="section-input" class="space-y-8">
+
+            <!-- エラーアラートメッセージ（未選択時に自動表示） -->
+            <div id="error-alert" class="hidden bg-red-50 border-2 border-red-500 text-red-900 p-5 rounded-2xl shadow-md flex items-start space-x-4">
+                <i class="fa-solid fa-triangle-exclamation text-red-600 text-2xl mt-0.5"></i>
+                <div>
+                    <div class="font-bold text-base md:text-lg">未選択の評価項目があります</div>
+                    <div id="error-alert-msg" class="text-sm mt-1 text-red-700">STEP 2のIT/デジタル活用度（全5項目）をすべて選択してから「診断結果を表示する」を押してください。</div>
+                </div>
+            </div>
+
+            <!-- 操作説明ガイダンスカード -->
+            <div class="bg-gradient-to-r from-indigo-900 to-slate-800 text-white p-6 md:p-8 rounded-2xl shadow-md">
+                <div class="flex items-start space-x-4">
+                    <div class="bg-indigo-500/30 p-3 rounded-xl text-indigo-300 text-2xl hidden md:block">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-bold mb-2 flex items-center">
+                            <i class="fa-solid fa-lightbulb text-amber-300 mr-2 md:hidden"></i> 診断ツールの使い方
+                        </h2>
+                        <p class="text-sm md:text-base text-slate-200 leading-relaxed">
+                            日頃の業務で感じている<strong>「お悩み（チェック式）」</strong>と、現在の<strong>「デジタル活用度（選択式）」</strong>を選ぶだけで、自社のDXレベルを<strong>レーダーチャート</strong>で視覚化し、<strong>全4軸・12分野のDXソリューション案</strong>から最適な改善策が自動抽出されます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. お悩みチェック -->
+            <section class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <div class="border-b-2 border-slate-200 pb-4 mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800 flex items-center">
+                        <span class="bg-indigo-600 text-white text-sm px-3 py-1 rounded-full mr-3">STEP 1</span>
+                        1. 現状のお悩みチェック（複数選択可）
+                    </h2>
+                    <p class="text-sm text-slate-500 mt-2">当てはまるお悩みすべてにチェックを入れてください。</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- ① 現場・安全・点呼のお悩み -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                        <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center text-indigo-900">
+                            <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-bold rounded mr-2">軸①</span>
+                            <i class="fa-solid fa-user-shield text-blue-600 mr-2 text-lg"></i> 現場・安全・点呼のお悩み
+                        </h3>
+                        <div class="space-y-3 text-sm md:text-base">
+                            <label class="flex items-start p-3 bg-white hover:bg-indigo-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="field" value="配車計画が特定の担当者の経験に依存し属人化している">
+                                <span>配車計画が特定の配車マンの経験に依存し属人化している（共有・引き継ぎが困難）</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-indigo-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="field" value="改善基準告示（ドライバー拘束時間上限）超過リスクを常に心配している">
+                                <span>改善基準告示（ドライバーの拘束時間・運転時間上限）の超過違反リスクが心配</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-indigo-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="field" value="運転日報・点呼記録の紙保管が中心で早朝・深夜点呼負担が大きい">
+                                <span>運転日報・点呼記録の保管が紙中心で、早朝・深夜点呼の負担が大きい</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-indigo-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="field" value="デジタコ・ドラレコデータを安全指導や安全手当給与試算に活かせていない">
+                                <span>デジタコ・ドラレコデータを安全指導や安全手当（インセンティブ）給与試算に活かせていない</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ② 荷主サービス・輸配送DXのお悩み -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                        <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center text-teal-900">
+                            <span class="px-2.5 py-0.5 bg-teal-100 text-teal-800 text-xs font-bold rounded mr-2">軸②</span>
+                            <i class="fa-solid fa-truck-fast text-teal-600 mr-2 text-lg"></i> 荷主サービス・輸配送DXのお悩み
+                        </h3>
+                        <div class="space-y-3 text-sm md:text-base">
+                            <label class="flex items-start p-3 bg-white hover:bg-teal-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="shipper" value="運行状況や現在地がリアルタイムに把握できず荷主問合せ対応に追われる">
+                                <span>運行状況（現在地や遅延）がリアルタイムに把握できず、荷主からの電話対応に追われる</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-teal-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="shipper" value="荷降ろし待ち時間・待機時間のデジタル実態記録や待機料請求ができていない">
+                                <span>荷降ろし待ち時間のデジタル記録や、荷主への待機料請求用エビデンス発行ができていない</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-teal-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="shipper" value="みかん・梅など繁忙期の需給連動運賃試算や即時見積回答が困難">
+                                <span>繁忙期（みかん・梅収穫期等）の需給連動運賃算出やWeb即時見積回答ができていない</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ③ 経営収支・フリート保守のお悩み -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                        <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center text-emerald-900">
+                            <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded mr-2">軸③</span>
+                            <i class="fa-solid fa-chart-pie text-emerald-600 mr-2 text-lg"></i> 経営収支・フリート保守のお悩み
+                        </h3>
+                        <div class="space-y-3 text-sm md:text-base">
+                            <label class="flex items-start p-3 bg-white hover:bg-emerald-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="management" value="毎月の締め日処理（転記・照合・計算）に膨大な時間がかかっている">
+                                <span>毎月の締め日処理（日報からの手動転記・照合・請求書作成）に膨大な時間がかかる</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-emerald-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="management" value="車種別（ウィング/平車/トレーラー/バルク）の限界利益・リアルタイム粗利が見えない">
+                                <span>車種別（ウィング/平車/トレーラー/バルク）や顧客ごとの「リアルタイム粗利・採算」が見えていない</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-emerald-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="management" value="車検・定期点検・パーツ寿命管理の漏れや維持コストが一元化されていない">
+                                <span>車検・定期点検・パーツ寿命の走行距離連動管理やトータル維持費が一元化されていない</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-emerald-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="management" value="大手荷主からCO2排出量算出（改正省エネ法・Scope3開示）を求められている">
+                                <span>大手荷主からCO2排出量算定（改正省エネ法・Scope3開示）や環境レポートを求められている</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- ④ プラットフォーム・AI高度化のお悩み -->
+                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50">
+                        <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center text-purple-900">
+                            <span class="px-2.5 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded mr-2">軸④</span>
+                            <i class="fa-solid fa-microchip text-purple-600 mr-2 text-lg"></i> プラットフォーム・AI高度化のお悩み
+                        </h3>
+                        <div class="space-y-3 text-sm md:text-base">
+                            <label class="flex items-start p-3 bg-white hover:bg-purple-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="platform" value="倉庫ピッキング・保管と配送の連動が取れず二重入力が発生している">
+                                <span>倉庫拠点（西浜等）の保管・検品と配送伝票の完全連動ができておらず二重入力が発生</span>
+                            </label>
+                            <label class="flex items-start p-3 bg-white hover:bg-purple-50/50 rounded-lg cursor-pointer border border-slate-200 transition">
+                                <input type="checkbox" class="issue-check text-indigo-600 rounded mt-1 mr-3" data-cat="platform" value="復路（下り便）空車マッチングや地域同業者との共同配送ができていない">
+                                <span>復路（下り便）の空車マッチングや地域同業者との共同配送・中継交代運行が未着手</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. 現状のIT/デジタル活用度 セルフ評価 (全5項目 / 改良版UI) -->
+            <section class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200" id="step2-container">
+                <div class="border-b-2 border-slate-200 pb-4 mb-6">
+                    <h2 class="text-xl md:text-2xl font-bold text-slate-800 flex items-center">
+                        <span class="bg-indigo-600 text-white text-sm px-3 py-1 rounded-full mr-3">STEP 2</span>
+                        2. 現状のIT/デジタル活用度 セルフ評価（全5項目）<span class="text-red-500 text-sm ml-2 font-bold">*必須</span>
+                    </h2>
+                    <p class="text-sm text-slate-600 mt-2">
+                        現在の貴社の状態に一番近いレベル（Level 1〜5）をそれぞれ選んでください。<br>
+                        <span class="inline-block mt-1 font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                            ※ Level 1：活用度が低い（手作業・紙主体） ── ➔ ── Level 5：活用度が高い（高度自動化・ペーパーレス）
+                        </span>
+                    </p>
+                </div>
+
+
+
+                <div class="space-y-6">
+
+                    <!-- 項目1: 配車 -->
+                    <div class="p-5 border-2 border-slate-200 rounded-2xl bg-slate-50/50 item-box" id="box_dispatch">
+                        <div class="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center mr-2">1</span>
+                                配車計画・指示
+                            </div>
+                            <span class="selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-slate-400 bg-slate-200">未選択</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs md:text-sm">
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_dispatch', 1)">
+                                <div class="font-bold">Level 1</div>
+                                <div class="text-xs mt-1">手書き・口頭</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_dispatch', 2)">
+                                <div class="font-bold">Level 2</div>
+                                <div class="text-xs mt-1">エクセル表</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_dispatch', 3)">
+                                <div class="font-bold">Level 3</div>
+                                <div class="text-xs mt-1">配車ソフト</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 中</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_dispatch', 4)">
+                                <div class="font-bold">Level 4</div>
+                                <div class="text-xs mt-1">デジタコ連携</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや高</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_dispatch', 5)">
+                                <div class="font-bold">Level 5</div>
+                                <div class="text-xs mt-1">AI自動配車</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 高</div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="lvl_dispatch" value="">
+                    </div>
+
+                    <!-- 項目2: 日報・点呼 -->
+                    <div class="p-5 border-2 border-slate-200 rounded-2xl bg-slate-50/50 item-box" id="box_report">
+                        <div class="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center mr-2">2</span>
+                                日報・点呼・労務管理
+                            </div>
+                            <span class="selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-slate-400 bg-slate-200">未選択</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs md:text-sm">
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_report', 1)">
+                                <div class="font-bold">Level 1</div>
+                                <div class="text-xs mt-1">紙日報・対面紙</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_report', 2)">
+                                <div class="font-bold">Level 2</div>
+                                <div class="text-xs mt-1">エクセル転記</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_report', 3)">
+                                <div class="font-bold">Level 3</div>
+                                <div class="text-xs mt-1">IT点呼/Web</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 中</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_report', 4)">
+                                <div class="font-bold">Level 4</div>
+                                <div class="text-xs mt-1">勤怠自動連動</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや高</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_report', 5)">
+                                <div class="font-bold">Level 5</div>
+                                <div class="text-xs mt-1">ペーパーレス</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 高</div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="lvl_report" value="">
+                    </div>
+
+                    <!-- 項目3: 請求・収支 -->
+                    <div class="p-5 border-2 border-slate-200 rounded-2xl bg-slate-50/50 item-box" id="box_billing">
+                        <div class="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center mr-2">3</span>
+                                請求・収支管理
+                            </div>
+                            <span class="selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-slate-400 bg-slate-200">未選択</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs md:text-sm">
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_billing', 1)">
+                                <div class="font-bold">Level 1</div>
+                                <div class="text-xs mt-1">手計算・手書き</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_billing', 2)">
+                                <div class="font-bold">Level 2</div>
+                                <div class="text-xs mt-1">エクセル計算</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_billing', 3)">
+                                <div class="font-bold">Level 3</div>
+                                <div class="text-xs mt-1">請求ソフト単体</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 中</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_billing', 4)">
+                                <div class="font-bold">Level 4</div>
+                                <div class="text-xs mt-1">運行自動連動</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや高</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_billing', 5)">
+                                <div class="font-bold">Level 5</div>
+                                <div class="text-xs mt-1">即時粗利可視化</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 高</div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="lvl_billing" value="">
+                    </div>
+
+                    <!-- 項目4: 動態・位置把握 -->
+                    <div class="p-5 border-2 border-slate-200 rounded-2xl bg-slate-50/50 item-box" id="box_tracking">
+                        <div class="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center mr-2">4</span>
+                                動態・位置把握
+                            </div>
+                            <span class="selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-slate-400 bg-slate-200">未選択</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs md:text-sm">
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_tracking', 1)">
+                                <div class="font-bold">Level 1</div>
+                                <div class="text-xs mt-1">電話確認</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_tracking', 2)">
+                                <div class="font-bold">Level 2</div>
+                                <div class="text-xs mt-1">GPS単体アプリ</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_tracking', 3)">
+                                <div class="font-bold">Level 3</div>
+                                <div class="text-xs mt-1">デジタコ即時位置</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 中</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_tracking', 4)">
+                                <div class="font-bold">Level 4</div>
+                                <div class="text-xs mt-1">荷主共有Web</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや高</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_tracking', 5)">
+                                <div class="font-bold">Level 5</div>
+                                <div class="text-xs mt-1">到着予測自動通知</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 高</div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="lvl_tracking" value="">
+                    </div>
+
+                    <!-- 項目5: 車両・整備管理 -->
+                    <div class="p-5 border-2 border-slate-200 rounded-2xl bg-slate-50/50 item-box" id="box_maintenance">
+                        <div class="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                            <div class="flex items-center">
+                                <span class="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center mr-2">5</span>
+                                車両・整備管理
+                            </div>
+                            <span class="selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-slate-400 bg-slate-200">未選択</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs md:text-sm">
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_maintenance', 1)">
+                                <div class="font-bold">Level 1</div>
+                                <div class="text-xs mt-1">台帳手書き</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_maintenance', 2)">
+                                <div class="font-bold">Level 2</div>
+                                <div class="text-xs mt-1">エクセル一覧</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや低</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_maintenance', 3)">
+                                <div class="font-bold">Level 3</div>
+                                <div class="text-xs mt-1">整備管理ソフト</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 中</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_maintenance', 4)">
+                                <div class="font-bold">Level 4</div>
+                                <div class="text-xs mt-1">走行距離自動連動</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: やや高</div>
+                            </button>
+                            <button type="button" class="level-btn p-3.5 rounded-xl text-center" onclick="selectLevel(this, 'lvl_maintenance', 5)">
+                                <div class="font-bold">Level 5</div>
+                                <div class="text-xs mt-1">予防保全アラート</div>
+                                <div class="text-[10px] text-slate-400 mt-1">活用度: 高</div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="lvl_maintenance" value="">
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- 診断実行ボタン -->
+            <div class="text-center pt-4 pb-8">
+                <button onclick="calculateAndShowResult()" class="px-10 py-5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-lg md:text-xl rounded-2xl hover:from-emerald-700 hover:to-teal-700 shadow-xl transition transform hover:-translate-y-1 flex items-center justify-center mx-auto space-x-3">
+                    <i class="fa-solid fa-wand-magic-sparkles text-2xl"></i>
+                    <span>診断結果を表示する</span>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- 診断結果画面 (初期非表示) -->
+        <div id="section-result" class="hidden space-y-8">
+
+            <!-- 共有・出力アクションバー (no-print) -->
+            <div class="bg-indigo-900 text-white p-4 md:p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0 no-print">
+                <div class="flex items-center space-x-3">
+                    <i class="fa-solid fa-share-nodes text-2xl text-indigo-300"></i>
+                    <div>
+                        <div class="font-bold text-base md:text-lg">診断結果を共有・保存する</div>
+                        <div class="text-xs text-indigo-200">社内への報告や提案メモとして結果を送信できます</div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2.5">
+                    <button onclick="copyResultText()" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-sm rounded-xl transition flex items-center space-x-2 border border-white/20">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>テキスト共有コピー</span>
+                    </button>
+                    <button onclick="copyResultUrl()" class="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-sm rounded-xl transition flex items-center space-x-2 border border-white/20">
+                        <i class="fa-solid fa-link"></i>
+                        <span>共有URLコピー</span>
+                    </button>
+                    <button onclick="window.print()" class="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl shadow transition flex items-center space-x-2">
+                        <i class="fa-solid fa-print"></i>
+                        <span>印刷 / PDF保存</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- スコア ＆ レーダーチャート カード -->
+            <div class="card-box bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <div class="border-b border-slate-200 pb-4 mb-6 flex justify-between items-center">
+                    <div>
+                        <span class="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full font-bold text-xs">診断結果レポート</span>
+                        <h2 class="text-2xl font-bold text-slate-800 mt-1">自社DX診断結果サマリー & デジタル活用度チャート</h2>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 my-4 items-center">
+                    <!-- レーダーチャート -->
+                    <div class="md:col-span-5 flex justify-center">
+                        <div class="w-full max-w-[320px] chart-container">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- スコア & 評価テキスト -->
+                    <div class="md:col-span-7 space-y-4">
+                        <div class="card-box bg-indigo-50/60 p-5 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                            <div>
+                                <div class="text-xs font-bold text-slate-500">デジタル活用度スコア</div>
+                                <div id="res_score_val" class="text-3xl md:text-4xl font-black text-indigo-600 my-1">6 / 25 点</div>
+                            </div>
+                            <div id="res_score_rank" class="text-xs md:text-sm font-bold px-3.5 py-1.5 bg-amber-100 text-amber-900 rounded-full">
+                                フェーズⅠ：アナログ期
+                            </div>
+                        </div>
+
+                        <div class="card-box bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                            <div class="text-sm font-bold text-slate-800 mb-1.5 flex items-center">
+                                <i class="fa-solid fa-comment-dots text-indigo-600 mr-2"></i> 診断評価コメント
+                            </div>
+                            <p id="res_summary_text" class="text-xs md:text-sm text-slate-700 leading-relaxed">
+                                業務の大部分が紙・手作業中心で運用されています。配車指示・遠隔点呼・自動請求の導入により、月間50時間以上の業務時間削減と転記ミスゼロが直ちに達成可能です。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 検出された最優先解決課題 -->
+            <div class="card-box bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-800 text-lg mb-4 flex items-center border-b border-slate-200 pb-3">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-500 mr-2.5 text-xl"></i> 検出された優先解決課題
+                </h3>
+                <ul id="res_issues_list" class="space-y-3 text-sm md:text-base text-slate-800">
+                    <!-- JSで動的挿入 -->
+                </ul>
+            </div>
+
+            <!-- 抽出された推奨ソリューション案 -->
+            <div class="card-box bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-800 text-lg mb-4 flex items-center border-b border-slate-200 pb-3">
+                    <i class="fa-solid fa-cubes text-indigo-600 mr-2.5 text-xl"></i> 診断結果に基づく推奨DXソリューション案
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs md:text-sm text-left border-collapse border border-slate-300">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-900">
+                                <th class="border border-slate-300 p-3 font-bold w-1/5">4軸分類</th>
+                                <th class="border border-slate-300 p-3 font-bold w-1/4">ソリューション名</th>
+                                <th class="border border-slate-300 p-3 font-bold w-1/3">解決する課題・主な機能</th>
+                                <th class="border border-slate-300 p-3 font-bold">期待される改善効果・メリット</th>
+                            </tr>
+                        </thead>
+                        <tbody id="res_solutions_table">
+                            <!-- JSで動的挿入 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 全12分野ソリューション一覧表示ボタン -->
+                <div class="mt-6 pt-4 border-t border-slate-200 text-center no-print">
+                    <button id="toggle-all-btn" onclick="toggleAllSolutions()" class="px-8 py-3.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm md:text-base rounded-xl shadow transition inline-flex items-center space-x-2">
+                        <i class="fa-solid fa-list-check text-indigo-400 text-lg"></i>
+                        <span id="toggle-btn-text">全12分野ソリューション一覧を表示する（全案を見る）</span>
+                        <i id="toggle-btn-icon" class="fa-solid fa-chevron-down ml-2"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 全12分野ソリューションカタログ（初期折りたたみ） -->
+            <div id="all-solutions-container" class="hidden space-y-6">
+                <div class="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-md border border-slate-800">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="px-3 py-1 bg-indigo-500/30 text-indigo-300 rounded-full font-bold text-xs">全12ソリューションカタログ</span>
+                            <h3 class="text-xl font-bold mt-1">全4軸・12分野ソリューション詳細一覧</h3>
+                        </div>
+                        <button onclick="toggleAllSolutions()" class="text-slate-400 hover:text-white text-sm font-bold no-print">
+                            <i class="fa-solid fa-xmark mr-1"></i> 閉じる
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="all-solutions-grid">
+                    <!-- JSで展開生成 -->
+                </div>
+            </div>
+
+            <!-- アクションボタン (no-print) -->
+            <div class="flex justify-between items-center pt-4 no-print">
+                <button onclick="backToInput()" class="px-6 py-3 border border-slate-300 text-slate-700 font-bold text-base rounded-xl hover:bg-slate-50 transition flex items-center">
+                    <i class="fa-solid fa-rotate-left mr-2"></i> 条件を変更して再診断
+                </button>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- フッター (no-print) -->
+    <footer class="bg-slate-900 text-slate-400 py-4 text-center text-xs border-t border-slate-800 no-print">
+        <p>© 2026 課題診断ツール</p>
+    </footer>
+
+    <script>
+        // ソリューションDB定義
+        const SOLUTIONS_DB = {
+            field: [
+                { axis: "① 現場・安全・点呼", badgeClass: "bg-blue-100 text-blue-800 border-blue-300", name: "① 労務違反予兆アラート", desc: "改善基準告示（拘束時間・運転時間）の事前警告、AI配車組み換え提案", effect: "拘束時間超過リスクをゼロ化。事前警告により2024年問題への完全防衛を達成。" },
+                { axis: "① 現場・安全・点呼", badgeClass: "bg-blue-100 text-blue-800 border-blue-300", name: "② AI安全解析＆インセンティブ", desc: "デジタコ/ドラレコAI解析による安全スコア化＆安全手当（給与）自動連動", effect: "事故発生率を40%削減。安全手当の自動試算によりドライバーモチベーション向上。" },
+                { axis: "① 現場・安全・点呼", badgeClass: "bg-blue-100 text-blue-800 border-blue-300", name: "③ IT・遠隔ロボット点呼", desc: "早朝・深夜の遠隔点呼自動化、顔認証・アルコールデータ即時自動記録", effect: "24時間点呼の省人化。運行管理者の早朝・深夜待機負担を80%削減。" }
+            ],
+            shipper: [
+                { axis: "② 荷主・輸配送DX", badgeClass: "bg-teal-100 text-teal-800 border-teal-300", name: "④ 荷主ポータル＆ETA追跡", desc: "荷主向け車両リアルタイム位置、到着予想時刻（ETA）共有＆電子受領書", effect: "荷主からの「今どこ？」電話問い合わせを90%削減。電子サインで即時回収。" },
+                { axis: "② 荷主・輸配送DX", badgeClass: "bg-teal-100 text-teal-800 border-teal-300", name: "⑤ バース予約＆荷待ち証明", desc: "荷降ろし待ち時間のデジタル実態計測＆待機料請求用証明書発行", effect: "荷待ち時間を平均1.5時間短縮。待機実態のデジタル証明により適正待機料を回収。" },
+                { axis: "② 荷主・輸配送DX", badgeClass: "bg-teal-100 text-teal-800 border-teal-300", name: "⑥ 動的運賃＆自動見積", desc: "みかん・梅繁忙期の需給連動運賃（ダイナミックプライシング）＆即時見積回答", effect: "繁忙期の運賃単価アップ（収益15%向上）と、荷主向け見積のPDF一発発行。" }
+            ],
+            management: [
+                { axis: "③ 経営収支・フリート保守", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300", name: "⑦ TMS-BI動態収支分析", desc: "車種別（ウィング/平車/トレーラー/バルク）限界利益・リアルタイム採算分析", effect: "車両1台・案件ごとの粗利を可視化。赤字案件の即時検知と適正運賃交渉を実現。" },
+                { axis: "③ 経営収支・フリート保守", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300", name: "⑧ 車両予防保全（V-DX）", desc: "100台超のフリートの車検・点検・パーツ寿命の走行距離連動管理", effect: "点検・オイル交換時期の漏れゼロ化。予防保全による維持費15%削減。" },
+                { axis: "③ 経営収支・フリート保守", badgeClass: "bg-emerald-100 text-emerald-800 border-emerald-300", name: "⑨ GX CO2排出量算出", desc: "荷主向けScope3（環境貢献）自動算出・改正省エネ法対応レポート", effect: "大手荷主からのESG・Scope3レポート提出要請にワンクリック対応。" }
+            ],
+            platform: [
+                { axis: "④ PF・AI高度化", badgeClass: "bg-purple-100 text-purple-800 border-purple-300", name: "⑩ WMS倉庫シームレス連携", desc: "西浜拠点等の倉庫保管・検品ステータスと配車伝票の完全リアルタイム同期", effect: "倉庫と配車間の二重入力・電話連絡を全廃。出庫から配送へのシームレス連動。" },
+                { axis: "④ PF・AI高度化", badgeClass: "bg-purple-100 text-purple-800 border-purple-300", name: "⑪ 共同配送・中継輸送PF", desc: "地域同業者との復路（下り便）空車マッチング＆中継拠点でのドライバー交代", effect: "復路空車率を30%削減。長距離運行のドライバー負担軽減と実車率向上。" },
+                { axis: "④ PF・AI高度化", badgeClass: "bg-purple-100 text-purple-800 border-purple-300", name: "⑫ AI配車＆音声ハンズフリー", desc: "ベテランノウハウ学習AI推薦、作業中・運転中のハンズフリー音声操作UI", effect: "配車作成時間を50%削減。ドライバー運転中の問合せ・連絡手間ゼロ化。" }
+            ]
+        };
+
+        let myRadarChart = null;
+
+        // レベル選択時のインタラクティブ描画・クラス付与
+        function selectLevel(btn, inputId, level) {
+            document.getElementById(inputId).value = level;
+            const parent = btn.parentElement;
+            
+            // 旧クラス全削除
+            parent.querySelectorAll('.level-btn').forEach(b => {
+                b.className = "level-btn p-3.5 rounded-xl text-center";
+            });
+
+            // Levelに応じたアクティブクラス適用
+            btn.classList.add(`active-lvl-${level}`);
+
+            // 親要素エラー解除
+            const box = parent.closest('.item-box');
+            if (box) {
+                box.classList.remove('error-border');
+                const badge = box.querySelector('.selected-badge');
+                if (badge) {
+                    badge.innerText = `Level ${level} 選択中`;
+                    badge.className = `selected-badge text-xs font-bold px-2.5 py-0.5 rounded text-white bg-indigo-600`;
+                }
+            }
+
+            // エラーアラート非表示
+            document.getElementById('error-alert').classList.add('hidden');
+        }
+
+        function renderRadarChart(l1, l2, l3, l4, l5) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if (myRadarChart) {
+                myRadarChart.destroy();
+            }
+
+            myRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['配車計画', '日報・点呼', '請求・収支', '動態・位置', '車両・整備'],
+                    datasets: [{
+                        label: 'デジタル活用度レベル',
+                        data: [l1, l2, l3, l4, l5],
+                        backgroundColor: 'rgba(79, 70, 229, 0.25)',
+                        borderColor: '#4f46e5',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#312e81',
+                        pointBorderColor: '#ffffff',
+                        pointHoverBackgroundColor: '#ffffff',
+                        pointHoverBorderColor: '#312e81',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#cbd5e1' },
+                            grid: { color: '#e2e8f0' },
+                            suggestedMin: 0,
+                            suggestedMax: 5,
+                            ticks: {
+                                stepSize: 1,
+                                font: { size: 10, weight: 'bold' },
+                                color: '#64748b'
+                            },
+                            pointLabels: {
+                                font: { size: 12, weight: 'bold' },
+                                color: '#1e293b'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function calculateAndShowResult() {
+            // STEP 2 バリデーションチェック (全5項目必須)
+            const ids = [
+                { id: 'lvl_dispatch', box: 'box_dispatch', title: '1. 配車計画・指示' },
+                { id: 'lvl_report', box: 'box_report', title: '2. 日報・点呼・労務管理' },
+                { id: 'lvl_billing', box: 'box_billing', title: '3. 請求・収支管理' },
+                { id: 'lvl_tracking', box: 'box_tracking', title: '4. 動態・位置把握' },
+                { id: 'lvl_maintenance', box: 'box_maintenance', title: '5. 車両・整備管理' }
+            ];
+
+            const unselected = [];
+            ids.forEach(item => {
+                const val = document.getElementById(item.id).value;
+                const boxEl = document.getElementById(item.box);
+                if (!val) {
+                    unselected.push(item.title);
+                    boxEl.classList.add('error-border');
+                } else {
+                    boxEl.classList.remove('error-border');
+                }
+            });
+
+            // 未選択項目がある場合、エラー表示して処理を中断
+            if (unselected.length > 0) {
+                const alertEl = document.getElementById('error-alert');
+                const alertMsg = document.getElementById('error-alert-msg');
+                alertMsg.innerHTML = `以下の項目が未選択です。すべて選択してください：<br><strong class="underline">${unselected.join(' / ')}</strong>`;
+                alertEl.classList.remove('hidden');
+
+                // 最初の未選択項目へスクロール
+                const firstErrBox = document.querySelector('.error-border');
+                if (firstErrBox) {
+                    firstErrBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+
+            // 全項目選択済みの場合は通常診断実行
+            document.getElementById('error-alert').classList.add('hidden');
+
+            const l1 = parseInt(document.getElementById('lvl_dispatch').value);
+            const l2 = parseInt(document.getElementById('lvl_report').value);
+            const l3 = parseInt(document.getElementById('lvl_billing').value);
+            const l4 = parseInt(document.getElementById('lvl_tracking').value);
+            const l5 = parseInt(document.getElementById('lvl_maintenance').value);
+            const score = l1 + l2 + l3 + l4 + l5;
+
+            document.getElementById('res_score_val').innerText = `${score} / 25 点`;
+            
+            let rank = "";
+            let summary = "";
+            if (score <= 8) {
+                rank = "フェーズⅠ：アナログ期（即時改善効果 大）";
+                summary = "業務の大部分が紙・手作業中心で運用されています。配車指示・遠隔点呼・自動請求の導入により、月間50時間以上の業務時間削減と転記ミスゼロが直ちに達成可能です。";
+            } else if (score <= 16) {
+                rank = "フェーズⅡ：個別デジタル期（連携強化フェーズ）";
+                summary = "個別のソフトやエクセルが一部活用されていますが、システム間のデータ連動が不足しています。各データを一元化し、リアルタイムな収支・荷主ポータル共有へ進む段階です。";
+            } else {
+                rank = "フェーズⅢ：高度データ駆動期（AI・分析活用フェーズ）";
+                summary = "高いデジタル化レベルを維持しています。さらなる粗利最大化やAI自動配車、荷主連携Webの導入により、他社との差別化と売上拡大を狙えるフェーズです。";
+            }
+            document.getElementById('res_score_rank').innerText = rank;
+            document.getElementById('res_summary_text').innerText = summary;
+
+            renderRadarChart(l1, l2, l3, l4, l5);
+
+            const checkedBoxes = document.querySelectorAll('.issue-check:checked');
+            const issuesUl = document.getElementById('res_issues_list');
+            issuesUl.innerHTML = "";
+
+            const solTable = document.getElementById('res_solutions_table');
+            solTable.innerHTML = "";
+
+            const addedSolutions = new Set();
+            const catMap = { field: false, shipper: false, management: false, platform: false };
+
+            if (checkedBoxes.length === 0) {
+                issuesUl.innerHTML = `<li class="p-3 bg-slate-50 border rounded-xl">※特定のお悩みのチェックが未選択です（全4軸12ソリューションから主要案をご提案します）。</li>`;
+                catMap.field = true;
+                catMap.management = true;
+            } else {
+                checkedBoxes.forEach(cb => {
+                    const li = document.createElement('li');
+                    li.className = 'p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center font-medium';
+                    li.innerHTML = `<i class="fa-solid fa-check text-indigo-600 mr-3 text-lg"></i> ${cb.value}`;
+                    issuesUl.appendChild(li);
+
+                    const cat = cb.getAttribute('data-cat');
+                    if (catMap.hasOwnProperty(cat)) {
+                        catMap[cat] = true;
+                    }
+                });
+            }
+
+            Object.keys(catMap).forEach(cat => {
+                if (catMap[cat] && SOLUTIONS_DB[cat]) {
+                    SOLUTIONS_DB[cat].forEach(sol => {
+                        if (!addedSolutions.has(sol.name)) {
+                            addedSolutions.add(sol.name);
+                            solTable.innerHTML += `
+                                <tr>
+                                    <td class="border p-3">
+                                        <span class="inline-block px-2.5 py-1 text-xs font-bold rounded border ${sol.badgeClass}">
+                                            ${sol.axis}
+                                        </span>
+                                    </td>
+                                    <td class="border p-3 font-bold text-indigo-950">${sol.name}</td>
+                                    <td class="border p-3">${sol.desc}</td>
+                                    <td class="border p-3 font-medium text-slate-700">${sol.effect}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                }
+            });
+
+            buildAllSolutionsGrid();
+
+            document.getElementById('section-input').classList.add('hidden');
+            document.getElementById('section-result').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function buildAllSolutionsGrid() {
+            const grid = document.getElementById('all-solutions-grid');
+            grid.innerHTML = "";
+            Object.keys(SOLUTIONS_DB).forEach(cat => {
+                SOLUTIONS_DB[cat].forEach(sol => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between";
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="px-2.5 py-1 text-xs font-bold rounded border ${sol.badgeClass}">
+                                    ${sol.axis}
+                                </span>
+                            </div>
+                            <h4 class="font-bold text-slate-900 text-base mb-2">${sol.name}</h4>
+                            <p class="text-xs text-slate-600 mb-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">${sol.desc}</p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100 text-xs font-bold text-emerald-700 flex items-start">
+                            <i class="fa-solid fa-circle-check mr-1.5 mt-0.5"></i>
+                            <span>${sol.effect}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
+            });
+        }
+
+        function toggleAllSolutions() {
+            const container = document.getElementById('all-solutions-container');
+            const btnText = document.getElementById('toggle-btn-text');
+            const btnIcon = document.getElementById('toggle-btn-icon');
+
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                btnText.innerText = "全12分野ソリューション一覧を折りたたむ";
+                btnIcon.className = "fa-solid fa-chevron-up ml-2";
+                container.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                container.classList.add('hidden');
+                btnText.innerText = "全12分野ソリューション一覧を表示する（全案を見る）";
+                btnIcon.className = "fa-solid fa-chevron-down ml-2";
+            }
+        }
+
+        function backToInput() {
+            document.getElementById('section-result').classList.add('hidden');
+            document.getElementById('section-input').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            toastMsg.innerText = message;
+            toast.classList.remove('opacity-0', 'pointer-events-none', '-translate-y-2');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', '-translate-y-2');
+            }, 3000);
+        }
+
+        function copyResultText() {
+            const scoreText = document.getElementById('res_score_val').innerText;
+            const rankText = document.getElementById('res_score_rank').innerText;
+            const summaryText = document.getElementById('res_summary_text').innerText;
+            
+            let text = `【課題診断ツール 診断結果レポート】\n`;
+            text += `作成日: 2026年9月30日\n\n`;
+            text += `■ デジタル活用度スコア: ${scoreText} (${rankText})\n`;
+            text += `■ 診断評価: ${summaryText}\n\n`;
+            text += `■ 検出された課題:\n`;
+
+            const issues = document.querySelectorAll('#res_issues_list li');
+            issues.forEach(i => {
+                text += ` ・ ${i.innerText.trim()}\n`;
+            });
+
+            text += `\n■ 推奨DXソリューション:\n`;
+            const solRows = document.querySelectorAll('#res_solutions_table tr');
+            solRows.forEach(row => {
+                const cols = row.querySelectorAll('td');
+                if (cols.length >= 4) {
+                    text += ` ・ [${cols[0].innerText.trim()}] ${cols[1].innerText.trim()} : ${cols[3].innerText.trim()}\n`;
+                }
+            });
+
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("診断結果テキストをクリップボードにコピーしました！");
+            });
+        }
+
+        function copyResultUrl() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                showToast("共有用URLをクリップボードにコピーしました！");
+            });
+        }
+    </script>
+</body>
+</html>
